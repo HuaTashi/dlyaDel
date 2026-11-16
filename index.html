@@ -22,7 +22,6 @@
     color: var(--text);
     padding: 18px 14px 100px;
     min-height: 100vh;
-    overflow-x: hidden;
   }
   
   /* Верхняя панель */
@@ -79,9 +78,8 @@
     align-items: center;
     gap: 12px;
     box-shadow: 0 1px 3px rgba(74,64,58,0.03);
-    transition: opacity 0.3s, background 0.3s, transform 0.2s;
+    transition: opacity 0.3s, background 0.3s;
     position: relative;
-    user-select: none;
   }
   .task.cat-home { background: #fcebd6; }
   .task.cat-health { background: #e3edf3; }
@@ -90,17 +88,6 @@
   .task.cat-work { background: #ebdce5; }
 
   .task.done-today { opacity: 0.6; }
-
-  /* Эффекты для перетаскивания */
-  .task.dragging {
-    opacity: 0.4;
-    transform: scale(0.98);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    z-index: 100;
-  }
-  .task.drag-over {
-    border-top: 2px solid var(--accent);
-  }
 
   .check {
     width: 26px;
@@ -152,36 +139,20 @@
   }
   .del:active { opacity: 1; }
 
-  /* Зона стрелочек и перетаскивания */
+  /* Стрелочки сортировки */
   .sort-zone {
     display: none;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
     gap: 4px;
     margin-left: 4px;
-    padding: 4px;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.4);
   }
   .edit-mode .sort-zone { display: flex; }
-  
-  .drag-handle {
-    font-size: 14px;
-    color: var(--muted);
-    cursor: grab;
-    letter-spacing: -1px;
-    padding: 2px;
-  }
-  .drag-handle:active { cursor: grabbing; }
-
-  .sort-btns { display: flex; gap: 4px; }
   .sort-btn {
     background: rgba(255,255,255,0.6);
     border: 1px solid var(--line);
     border-radius: 6px;
     font-size: 12px;
-    padding: 2px 6px;
+    padding: 4px 8px;
     cursor: pointer;
     color: var(--text);
   }
@@ -356,7 +327,6 @@ let currentCat = 'home';
 let editMode = false;
 let currentView = 'active';
 let editingTaskId = null;
-let dragTaskId = null;
 
 function todayKey() {
   const d = new Date();
@@ -454,58 +424,6 @@ function openEditSheet(id) {
   sheet.classList.add('open');
 }
 
-// --- Логика Drag & Drop ---
-function handleDragStart(e, id) {
-  dragTaskId = id;
-  e.target.closest('.task').classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', id); // Важно для работы DnD
-}
-
-function handleDragEnd(e) {
-  e.target.closest('.task').classList.remove('dragging');
-  document.querySelectorAll('.task').forEach(el => el.classList.remove('drag-over'));
-  dragTaskId = null;
-}
-
-function handleDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-}
-
-function handleDragEnter(e) {
-  e.preventDefault();
-  const target = e.target.closest('.task');
-  if (target && !target.classList.contains('dragging')) {
-    target.classList.add('drag-over');
-  }
-}
-
-function handleDragLeave(e) {
-  const target = e.target.closest('.task');
-  if (target) target.classList.remove('drag-over');
-}
-
-function handleDrop(e) {
-  e.preventDefault();
-  const target = e.target.closest('.task');
-  if (!target || !dragTaskId) return;
-  target.classList.remove('drag-over');
-
-  const targetId = target.dataset.id;
-  if (dragTaskId === targetId) return;
-
-  const fromIndex = tasks.findIndex(t => t.id === dragTaskId);
-  const toIndex = tasks.findIndex(t => t.id === targetId);
-
-  if (fromIndex > -1 && toIndex > -1) {
-    const [movedTask] = tasks.splice(fromIndex, 1);
-    tasks.splice(toIndex, 0, movedTask);
-    save();
-    render();
-  }
-}
-
 function render() {
   const list = document.getElementById('list');
   const empty = document.getElementById('empty');
@@ -548,20 +466,8 @@ function render() {
     
     const el = document.createElement('div');
     el.className = 'task cat-' + cat;
-    el.dataset.id = task.id;
     if (currentView === 'done') el.classList.add('done-today');
     if (editMode) el.classList.add('edit-mode');
-
-    // Drag&Drop атрибуты (только в режиме редактирования)
-    if (editMode && currentView === 'active') {
-      el.draggable = true;
-      el.addEventListener('dragstart', (e) => handleDragStart(e, task.id));
-      el.addEventListener('dragend', handleDragEnd);
-      el.addEventListener('dragover', handleDragOver);
-      el.addEventListener('dragenter', handleDragEnter);
-      el.addEventListener('dragleave', handleDragLeave);
-      el.addEventListener('drop', handleDrop);
-    }
 
     // Чекбокс
     if (currentView === 'active') {
@@ -625,17 +531,10 @@ function render() {
       el.appendChild(ret);
     }
 
-    // Зона стрелок и перетаскивания
+    // Стрелочки
     if (editMode && currentView === 'active') {
       const sortZone = document.createElement('div');
       sortZone.className = 'sort-zone';
-      
-      const handle = document.createElement('div');
-      handle.className = 'drag-handle';
-      handle.textContent = '⋮⋮';
-      
-      const btns = document.createElement('div');
-      btns.className = 'sort-btns';
       
       const up = document.createElement('button');
       up.className = 'sort-btn';
@@ -647,10 +546,8 @@ function render() {
       down.textContent = '↓';
       down.onclick = (e) => { e.stopPropagation(); moveTask(realIndex, 1); };
       
-      btns.appendChild(up);
-      btns.appendChild(down);
-      sortZone.appendChild(handle);
-      sortZone.appendChild(btns);
+      sortZone.appendChild(up);
+      sortZone.appendChild(down);
       el.appendChild(sortZone);
     }
 
