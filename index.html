@@ -22,14 +22,46 @@
     color: var(--text);
     padding: 18px 14px 100px;
     min-height: 100vh;
+    overflow-x: hidden;
+  }
+  
+  /* Верхняя панель */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 0 18px;
   }
   h1 {
     font-size: 22px;
     font-weight: 500;
-    margin: 8px 0 18px;
     color: var(--text);
     letter-spacing: 0.2px;
+    margin: 0;
   }
+  .header-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .icon-btn {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  .icon-btn.active {
+    background: var(--accent-soft);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
   .empty {
     text-align: center;
     color: var(--muted);
@@ -38,7 +70,7 @@
     line-height: 1.6;
   }
   
-  /* Плашки дел с мягким пастельным фоном */
+  /* Плашки дел */
   .task {
     border-radius: 16px;
     padding: 14px 16px;
@@ -47,16 +79,28 @@
     align-items: center;
     gap: 12px;
     box-shadow: 0 1px 3px rgba(74,64,58,0.03);
-    transition: opacity 0.3s, background 0.3s;
+    transition: opacity 0.3s, background 0.3s, transform 0.2s;
     position: relative;
+    user-select: none;
   }
-  
-  /* Цвета категорий (пастельные фоны) */
-  .task.cat-home { background: #fcebd6; }      /* Теплый оранжевый для Быта */
-  .task.cat-health { background: #e3edf3; }    /* Мятно-голубой для Здоровья */
-  .task.cat-study { background: #ece8f2; }     /* Лавандовый для Учебы */
-  .task.cat-other { background: #fdf5d3; }     /* Нежный желтый для Другого */
-  .task.cat-work { background: #e4e8eb; }      /* Спокойный серо-синий для Работы */
+  .task.cat-home { background: #fcebd6; }
+  .task.cat-health { background: #e3edf3; }
+  .task.cat-study { background: #ece8f2; }
+  .task.cat-other { background: #fdf5d3; }
+  .task.cat-work { background: #ebdce5; }
+
+  .task.done-today { opacity: 0.6; }
+
+  /* Эффекты для перетаскивания */
+  .task.dragging {
+    opacity: 0.4;
+    transform: scale(0.98);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100;
+  }
+  .task.drag-over {
+    border-top: 2px solid var(--accent);
+  }
 
   .check {
     width: 26px;
@@ -64,7 +108,7 @@
     min-width: 26px;
     border-radius: 50%;
     border: 2px solid var(--accent-soft);
-    background: rgba(255,255,255,0.5); /* Полупрозрачный, чтобы не сливался с фоном */
+    background: rgba(255,255,255,0.5);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -77,25 +121,25 @@
     background: var(--accent);
     border-color: var(--accent);
   }
-  .task-body { flex: 1; min-width: 0; }
+  .task-body { flex: 1; min-width: 0; cursor: pointer; }
   .task-name {
     font-size: 16px;
     line-height: 1.3;
     word-wrap: break-word;
   }
-  .dots {
-    display: flex;
-    gap: 5px;
-    margin-top: 6px;
+  .task-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+    display: none;
+    line-height: 1.4;
   }
-  .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: rgba(74,64,58,0.15);
-    transition: background 0.2s;
-  }
+  .task.desc-open .task-desc { display: block; }
+
+  .dots { display: flex; gap: 5px; margin-top: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(74,64,58,0.15); }
   .dot.filled { background: var(--accent); }
+
   .del {
     background: none;
     border: none;
@@ -108,6 +152,53 @@
   }
   .del:active { opacity: 1; }
 
+  /* Зона стрелочек и перетаскивания */
+  .sort-zone {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-left: 4px;
+    padding: 4px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.4);
+    touch-action: none; /* Отключает скролл страницы при перетаскивании */
+  }
+  .edit-mode .sort-zone { display: flex; }
+  
+  .drag-handle {
+    font-size: 14px;
+    color: var(--muted);
+    cursor: grab;
+    letter-spacing: -1px;
+    padding: 2px;
+  }
+  .drag-handle:active { cursor: grabbing; }
+
+  .sort-btns { display: flex; gap: 4px; }
+  .sort-btn {
+    background: rgba(255,255,255,0.6);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 12px;
+    padding: 2px 6px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .sort-btn:active { background: var(--accent-soft); }
+
+  .return-btn {
+    background: none;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: auto;
+  }
+
   .add-btn {
     position: fixed;
     bottom: 20px;
@@ -119,12 +210,12 @@
     color: white;
     border: none;
     font-size: 30px;
-    line-height: 1;
     box-shadow: 0 4px 12px rgba(143,174,139,0.4);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 5;
   }
   .sheet {
     position: fixed;
@@ -143,18 +234,10 @@
     max-height: 90vh;
     overflow-y: auto;
   }
-  .sheet-content h2 {
-    font-size: 18px;
-    font-weight: 500;
-    margin: 0 0 18px;
-  }
-  label {
-    display: block;
-    font-size: 13px;
-    color: var(--muted);
-    margin: 14px 0 6px;
-  }
-  input[type="text"], select {
+  .sheet-content h2 { font-size: 18px; font-weight: 500; margin: 0 0 18px; }
+  
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  input[type="text"], select, textarea {
     width: 100%;
     padding: 12px 14px;
     border-radius: 12px;
@@ -164,86 +247,58 @@
     color: var(--text);
     font-family: inherit;
   }
-  .row { display: flex; gap: 10px; }
-  .row > div { flex: 1; }
-  .days {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  .day-btn {
-    flex: 1;
-    min-width: 38px;
-    padding: 10px 0;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 13px;
-    cursor: pointer;
-  }
-  .day-btn.active {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-  }
+  textarea { resize: vertical; min-height: 60px; }
   
-  /* Стили для выбора категории (кнопки в форме) */
-  .cat-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+  .days { display: flex; gap: 6px; flex-wrap: wrap; }
+  .day-btn {
+    flex: 1; min-width: 38px; padding: 10px 0; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    font-size: 13px; cursor: pointer;
   }
+  .day-btn.active { background: var(--accent-soft); border-color: var(--accent); }
+  
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .cat-btn {
-    padding: 10px 0;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    cursor: pointer;
-    text-align: center;
+    padding: 10px 0; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer; text-align: center;
   }
-  /* Подсветка выбранной категории в форме (совпадает с цветом плашки) */
   .cat-btn.active-home { background: #fcebd6; border-color: #e6a15c; }
   .cat-btn.active-health { background: #e3edf3; border-color: #7ba2c4; }
   .cat-btn.active-study { background: #ece8f2; border-color: #a894b8; }
   .cat-btn.active-other { background: #fdf5d3; border-color: #e6c857; }
-  .cat-btn.active-work { background: #e4e8eb; border-color: #8e9ba8; }
+  .cat-btn.active-work { background: #ebdce5; border-color: #b59eb3; }
 
   .save-btn {
-    width: 100%;
-    margin-top: 22px;
-    padding: 15px;
-    border-radius: 14px;
-    border: none;
-    background: var(--accent);
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    font-family: inherit;
+    width: 100%; margin-top: 22px; padding: 15px; border-radius: 14px;
+    border: none; background: var(--accent); color: white; font-size: 16px; cursor: pointer;
   }
-  .hint {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 8px;
-    line-height: 1.5;
-  }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
 </style>
 </head>
 <body>
 
-<h1>Мой день</h1>
+<div class="header">
+  <h1>Мой день</h1>
+  <div class="header-actions">
+    <button class="icon-btn" id="doneBtn" onclick="toggleView('done')">Выполнено</button>
+    <button class="icon-btn" id="editBtn" onclick="toggleEditMode()">✎</button>
+  </div>
+</div>
+
 <div id="list"></div>
 <div id="empty" class="empty">Пока пусто.<br>Добавь первое дело — кнопкой «+».</div>
 
-<button class="add-btn" onclick="openSheet()">+</button>
+<button class="add-btn" id="addBtn" onclick="openSheet()">+</button>
 
 <div class="sheet" id="sheet">
   <div class="sheet-content">
-    <h2>Новое дело</h2>
+    <h2 id="sheetTitle">Новое дело</h2>
 
     <label>Название</label>
     <input type="text" id="name" placeholder="Например, поесть" maxlength="60">
+
+    <label>Описание (необязательно)</label>
+    <textarea id="desc" placeholder="Детали, которые не видны в общем списке..." maxlength="200"></textarea>
 
     <label>Категория</label>
     <div class="cat-grid" id="catRow">
@@ -283,7 +338,6 @@
         <option>1</option><option>2</option><option>3</option>
         <option>4</option><option>5</option><option>6</option>
       </select>
-      <div class="hint">Дело будет доступно каждый день, пока не наберёшь нужное число раз за неделю.</div>
     </div>
 
     <label>Сколько раз в день</label>
@@ -292,7 +346,7 @@
       <option>4</option><option>5</option>
     </select>
 
-    <button class="save-btn" onclick="saveTask()">Сохранить</button>
+    <button class="save-btn" id="saveBtn" onclick="saveTask()">Сохранить</button>
   </div>
 </div>
 
@@ -300,6 +354,10 @@
 const STORAGE_KEY = 'myday_tasks_v1';
 let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let currentCat = 'home';
+let editMode = false;
+let currentView = 'active';
+let editingTaskId = null;
+let dragTaskId = null;
 
 function todayKey() {
   const d = new Date();
@@ -307,17 +365,6 @@ function todayKey() {
 }
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
-
-function isActiveToday(task) {
-  const day = new Date().getDay();
-  if (task.repeatType === 'once') return getDoneToday(task) === 0;
-  if (task.repeatType === 'daily') return true;
-  if (task.repeatType === 'weekdays') return day >= 1 && day <= 5;
-  if (task.repeatType === 'weekends') return day === 0 || day === 6;
-  if (task.repeatType === 'custom') return task.customDays.includes(day);
-  if (task.repeatType === 'weekly') return true;
-  return true;
-}
 
 function getDoneToday(task) {
   const key = todayKey();
@@ -346,48 +393,214 @@ function getWeekCount(task) {
   return count;
 }
 
+function isActiveToday(task) {
+  const day = new Date().getDay();
+  if (task.repeatType === 'once') return getDoneToday(task) === 0;
+  if (task.repeatType === 'daily') return true;
+  if (task.repeatType === 'weekdays') return day >= 1 && day <= 5;
+  if (task.repeatType === 'weekends') return day === 0 || day === 6;
+  if (task.repeatType === 'custom') return task.customDays.includes(day);
+  if (task.repeatType === 'weekly') return true;
+  return true;
+}
+
+function toggleView(view) {
+  if (view === 'done') {
+    if (currentView === 'done') { currentView = 'active'; } else { currentView = 'done'; }
+  } else {
+    currentView = 'active';
+  }
+  render();
+}
+
+function toggleEditMode() {
+  editMode = !editMode;
+  if (editMode && currentView === 'done') currentView = 'active';
+  render();
+}
+
+function moveTask(index, direction) {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= tasks.length) return;
+  const temp = tasks[index];
+  tasks[index] = tasks[newIndex];
+  tasks[newIndex] = temp;
+  save();
+  render();
+}
+
+function openEditSheet(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  
+  editingTaskId = id;
+  document.getElementById('sheetTitle').textContent = 'Редактировать дело';
+  document.getElementById('name').value = task.name;
+  document.getElementById('desc').value = task.desc || '';
+  document.getElementById('repeatType').value = task.repeatType;
+  document.getElementById('timesPerDay').value = task.timesPerDay || 1;
+  document.getElementById('weeklyCount').value = task.weeklyCount || 3;
+  
+  selectCat(task.cat || 'home');
+  
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+  if (task.repeatType === 'custom' && task.customDays) {
+    task.customDays.forEach(d => {
+      const btn = document.querySelector(`.day-btn[data-day="${d}"]`);
+      if (btn) btn.classList.add('active');
+    });
+  }
+
+  onRepeatChange();
+  sheet.classList.add('open');
+}
+
+// --- Логика Drag & Drop ---
+function handleDragStart(e, id) {
+  dragTaskId = id;
+  e.target.closest('.task').classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+  e.target.closest('.task').classList.remove('dragging');
+  document.querySelectorAll('.task').forEach(el => el.classList.remove('drag-over'));
+  dragTaskId = null;
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragEnter(e) {
+  e.preventDefault();
+  const target = e.target.closest('.task');
+  if (target && !target.classList.contains('dragging')) {
+    target.classList.add('drag-over');
+  }
+}
+
+function handleDragLeave(e) {
+  const target = e.target.closest('.task');
+  if (target) target.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  const target = e.target.closest('.task');
+  if (!target || !dragTaskId) return;
+  target.classList.remove('drag-over');
+
+  const targetId = target.dataset.id;
+  if (dragTaskId === targetId) return;
+
+  const fromIndex = tasks.findIndex(t => t.id === dragTaskId);
+  const toIndex = tasks.findIndex(t => t.id === targetId);
+
+  if (fromIndex > -1 && toIndex > -1) {
+    const [movedTask] = tasks.splice(fromIndex, 1);
+    tasks.splice(toIndex, 0, movedTask);
+    save();
+    render();
+  }
+}
+
 function render() {
   const list = document.getElementById('list');
   const empty = document.getElementById('empty');
   list.innerHTML = '';
+  
+  document.getElementById('editBtn').className = 'icon-btn' + (editMode ? ' active' : '');
+  document.getElementById('doneBtn').className = 'icon-btn' + (currentView === 'done' ? ' active' : '');
+  document.getElementById('addBtn').style.display = editMode ? 'none' : 'flex';
 
-  const visible = tasks.filter(t => {
-    if (!isActiveToday(t)) return false;
-    if (t.repeatType === 'weekly') return getWeekCount(t) < t.weeklyCount;
-    if (t.repeatType === 'once') return getDoneToday(t) < 1;
-    return getDoneToday(t) < t.timesPerDay;
-  });
+  let visible = [];
+  
+  if (currentView === 'done') {
+    visible = tasks.filter(t => {
+      const max = t.repeatType === 'once' ? 1 : (t.timesPerDay || 1);
+      return getDoneToday(t) >= max;
+    });
+  } else {
+    visible = tasks.filter(t => {
+      if (!isActiveToday(t)) return false;
+      if (t.repeatType === 'weekly') return getWeekCount(t) < t.weeklyCount;
+      if (t.repeatType === 'once') return getDoneToday(t) < 1;
+      return getDoneToday(t) < (t.timesPerDay || 1);
+    });
+  }
 
-  empty.style.display = visible.length === 0 ? 'block' : 'none';
+  if (visible.length === 0) {
+    empty.style.display = 'block';
+    empty.innerHTML = currentView === 'done' 
+      ? 'На сегодня выполненных дел пока нет.'
+      : 'Пока пусто.<br>Добавь первое дело — кнопкой «+».';
+  } else {
+    empty.style.display = 'none';
+  }
 
   visible.forEach(task => {
     const done = getDoneToday(task);
     const max = task.timesPerDay || 1;
-    
-    // Если у старого дела нет категории, ставим "Другое" по умолчанию
-    const cat = task.cat || 'other'; 
+    const cat = task.cat || 'other';
+    const realIndex = tasks.findIndex(t => t.id === task.id);
     
     const el = document.createElement('div');
-    el.className = 'task cat-' + cat + (done >= max ? ' done-today' : '');
+    el.className = 'task cat-' + cat;
+    el.dataset.id = task.id;
+    if (currentView === 'done') el.classList.add('done-today');
+    if (editMode) el.classList.add('edit-mode');
 
-    const check = document.createElement('div');
-    check.className = 'check' + (done >= max ? ' checked' : '');
-    if (done >= max) check.textContent = '✓';
-    check.onclick = () => {
-      const next = done + 1;
-      setDoneToday(task, next >= max ? max : next);
-      render();
-    };
+    // Drag&Drop атрибуты (только в режиме редактирования)
+    if (editMode && currentView === 'active') {
+      el.draggable = true;
+      el.addEventListener('dragstart', (e) => handleDragStart(e, task.id));
+      el.addEventListener('dragend', handleDragEnd);
+      el.addEventListener('dragover', handleDragOver);
+      el.addEventListener('dragenter', handleDragEnter);
+      el.addEventListener('dragleave', handleDragLeave);
+      el.addEventListener('drop', handleDrop);
+    }
 
+    // Чекбокс
+    if (currentView === 'active') {
+      const check = document.createElement('div');
+      check.className = 'check' + (done >= max ? ' checked' : '');
+      if (done >= max) check.textContent = '✓';
+      check.onclick = (e) => {
+        e.stopPropagation();
+        const next = done + 1;
+        setDoneToday(task, next >= max ? max : next);
+        render();
+      };
+      el.appendChild(check);
+    }
+
+    // Тело
     const body = document.createElement('div');
     body.className = 'task-body';
+    body.onclick = () => {
+      if (editMode) {
+        openEditSheet(task.id);
+      } else {
+        el.classList.toggle('desc-open');
+      }
+    };
 
     const name = document.createElement('div');
     name.className = 'task-name';
     name.textContent = task.name;
     body.appendChild(name);
 
-    if (max > 1) {
+    if (task.desc) {
+      const desc = document.createElement('div');
+      desc.className = 'task-desc';
+      desc.textContent = task.desc;
+      body.appendChild(desc);
+    }
+
+    if (max > 1 && currentView === 'active') {
       const dots = document.createElement('div');
       dots.className = 'dots';
       for (let i = 0; i < max; i++) {
@@ -397,91 +610,72 @@ function render() {
       }
       body.appendChild(dots);
     }
+    el.appendChild(body);
 
-    if (task.repeatType === 'weekly') {
-      const info = document.createElement('div');
-      info.className = 'hint';
-      info.style.marginTop = '4px';
-      info.textContent = 'На этой неделе: ' + getWeekCount(task) + ' из ' + task.weeklyCount;
-      body.appendChild(info);
+    // Кнопка возврата
+    if (currentView === 'done') {
+      const ret = document.createElement('button');
+      ret.className = 'return-btn';
+      ret.textContent = 'Вернуть';
+      ret.onclick = (e) => {
+        e.stopPropagation();
+        setDoneToday(task, 0);
+        render();
+      };
+      el.appendChild(ret);
     }
 
-    const del = document.createElement('button');
-    del.className = 'del';
-    del.textContent = '×';
-    del.onclick = () => {
-      if (confirm('Удалить «' + task.name + '»?')) {
-        tasks = tasks.filter(t => t.id !== task.id);
-        save(); render();
-      }
-    };
+    // Зона стрелок и перетаскивания
+    if (editMode && currentView === 'active') {
+      const sortZone = document.createElement('div');
+      sortZone.className = 'sort-zone';
+      
+      const handle = document.createElement('div');
+      handle.className = 'drag-handle';
+      handle.textContent = '⋮⋮';
+      
+      const btns = document.createElement('div');
+      btns.className = 'sort-btns';
+      
+      const up = document.createElement('button');
+      up.className = 'sort-btn';
+      up.textContent = '↑';
+      up.onclick = (e) => { e.stopPropagation(); moveTask(realIndex, -1); };
+      
+      const down = document.createElement('button');
+      down.className = 'sort-btn';
+      down.textContent = '↓';
+      down.onclick = (e) => { e.stopPropagation(); moveTask(realIndex, 1); };
+      
+      btns.appendChild(up);
+      btns.appendChild(down);
+      sortZone.appendChild(handle);
+      sortZone.appendChild(btns);
+      el.appendChild(sortZone);
+    }
 
-    el.appendChild(check);
-    el.appendChild(body);
-    el.appendChild(del);
+    // Удаление
+    if (!editMode && currentView === 'active') {
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '×';
+      del.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm('Удалить «' + task.name + '»?')) {
+          tasks = tasks.filter(t => t.id !== task.id);
+          save(); render();
+        }
+      };
+      el.appendChild(del);
+    }
+
     list.appendChild(el);
   });
 }
 
 const sheet = document.getElementById('sheet');
 function openSheet() {
+  editingTaskId = null;
+  document.getElementById('sheetTitle').textContent = 'Новое дело';
   document.getElementById('name').value = '';
-  document.getElementById('repeatType').value = 'daily';
-  document.getElementById('timesPerDay').value = '1';
-  document.getElementById('weeklyCount').value = '3';
-  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
-  selectCat('home');
-  onRepeatChange();
-  sheet.classList.add('open');
-  setTimeout(() => document.getElementById('name').focus(), 100);
-}
-function closeSheet() { sheet.classList.remove('open'); }
-sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
-
-function onRepeatChange() {
-  const v = document.getElementById('repeatType').value;
-  document.getElementById('customDaysWrap').style.display = v === 'custom' ? 'block' : 'none';
-  document.getElementById('weeklyWrap').style.display = v === 'weekly' ? 'block' : 'none';
-}
-
-function selectCat(cat) {
-  currentCat = cat;
-  document.querySelectorAll('.cat-btn').forEach(btn => {
-    btn.className = 'cat-btn'; // сброс
-    if (btn.dataset.cat === cat) btn.classList.add('active-' + cat);
-  });
-}
-
-document.querySelectorAll('.day-btn').forEach(btn => {
-  btn.onclick = () => btn.classList.toggle('active');
-});
-
-function saveTask() {
-  const name = document.getElementById('name').value.trim();
-  if (!name) { alert('Напиши название дела'); return; }
-  const repeatType = document.getElementById('repeatType').value;
-  const timesPerDay = parseInt(document.getElementById('timesPerDay').value);
-  const weeklyCount = parseInt(document.getElementById('weeklyCount').value);
-  const customDays = Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day));
-
-  if (repeatType === 'custom' && customDays.length === 0) {
-    alert('Выбери хотя бы один день'); return;
-  }
-
-  tasks.push({
-    id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
-    name,
-    cat: currentCat,
-    repeatType,
-    customDays,
-    weeklyCount,
-    timesPerDay,
-    done: {}
-  });
-  save(); closeSheet(); render();
-}
-
-render();
-</script>
-</body>
-</html>
+  document.getEleme
