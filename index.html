@@ -163,7 +163,6 @@
     padding: 4px;
     border-radius: 8px;
     background: rgba(255,255,255,0.4);
-    touch-action: none; /* Отключает скролл страницы при перетаскивании */
   }
   .edit-mode .sort-zone { display: flex; }
   
@@ -460,6 +459,7 @@ function handleDragStart(e, id) {
   dragTaskId = id;
   e.target.closest('.task').classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', id); // Важно для работы DnD
 }
 
 function handleDragEnd(e) {
@@ -678,4 +678,73 @@ function openSheet() {
   editingTaskId = null;
   document.getElementById('sheetTitle').textContent = 'Новое дело';
   document.getElementById('name').value = '';
-  document.getEleme
+  document.getElementById('desc').value = '';
+  document.getElementById('repeatType').value = 'daily';
+  document.getElementById('timesPerDay').value = '1';
+  document.getElementById('weeklyCount').value = '3';
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+  selectCat('home');
+  onRepeatChange();
+  sheet.classList.add('open');
+  setTimeout(() => document.getElementById('name').focus(), 100);
+}
+function closeSheet() { sheet.classList.remove('open'); }
+sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+
+function onRepeatChange() {
+  const v = document.getElementById('repeatType').value;
+  document.getElementById('customDaysWrap').style.display = v === 'custom' ? 'block' : 'none';
+  document.getElementById('weeklyWrap').style.display = v === 'weekly' ? 'block' : 'none';
+}
+
+function selectCat(cat) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.className = 'cat-btn';
+    if (btn.dataset.cat === cat) btn.classList.add('active-' + cat);
+  });
+}
+
+document.querySelectorAll('.day-btn').forEach(btn => {
+  btn.onclick = () => btn.classList.toggle('active');
+});
+
+function saveTask() {
+  const name = document.getElementById('name').value.trim();
+  if (!name) { alert('Напиши название дела'); return; }
+  const desc = document.getElementById('desc').value.trim();
+  const repeatType = document.getElementById('repeatType').value;
+  const timesPerDay = parseInt(document.getElementById('timesPerDay').value);
+  const weeklyCount = parseInt(document.getElementById('weeklyCount').value);
+  const customDays = Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day));
+
+  if (repeatType === 'custom' && customDays.length === 0) {
+    alert('Выбери хотя бы один день'); return;
+  }
+
+  if (editingTaskId) {
+    const task = tasks.find(t => t.id === editingTaskId);
+    if (task) {
+      task.name = name;
+      task.desc = desc;
+      task.cat = currentCat;
+      task.repeatType = repeatType;
+      task.customDays = customDays;
+      task.weeklyCount = weeklyCount;
+      task.timesPerDay = timesPerDay;
+    }
+  } else {
+    tasks.push({
+      id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      name, desc, cat: currentCat,
+      repeatType, customDays, weeklyCount, timesPerDay,
+      done: {}
+    });
+  }
+  save(); closeSheet(); render();
+}
+
+render();
+</script>
+</body>
+</html>
