@@ -13,6 +13,11 @@
     --accent: #8fae8b;
     --accent-soft: #dfe9dc;
     --line: #ece2d8;
+    
+    /* Цвета категорий */
+    --color-home: #e6a15c;     /* Теплый оранжевый */
+    --color-health: #7ba2c4;   /* Спокойный синий */
+    --color-study: #a894b8;    /* Пыльный фиолетовый */
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -40,17 +45,29 @@
   .task {
     background: var(--card);
     border-radius: 16px;
-    padding: 14px 16px;
+    padding: 14px 16px 14px 20px;
     margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 12px;
     box-shadow: 0 1px 2px rgba(74,64,58,0.04);
     transition: opacity 0.3s;
+    position: relative;
+    overflow: hidden;
   }
-  .task.done-today {
-    opacity: 0.45;
+  .task::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: transparent;
   }
+  .task.cat-home::before { background: var(--color-home); }
+  .task.cat-health::before { background: var(--color-health); }
+  .task.cat-study::before { background: var(--color-study); }
+
   .check {
     width: 26px;
     height: 26px;
@@ -101,7 +118,6 @@
   }
   .del:active { opacity: 1; }
 
-  /* Форма добавления */
   .add-btn {
     position: fixed;
     bottom: 20px;
@@ -180,6 +196,24 @@
     background: var(--accent-soft);
     border-color: var(--accent);
   }
+  
+  /* Стили для выбора категории */
+  .cat-btns { display: flex; gap: 8px; }
+  .cat-btn {
+    flex: 1;
+    padding: 10px 0;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .cat-btn.active-home { background: rgba(230,161,92,0.2); border-color: var(--color-home); }
+  .cat-btn.active-health { background: rgba(123,162,196,0.2); border-color: var(--color-health); }
+  .cat-btn.active-study { background: rgba(168,148,184,0.2); border-color: var(--color-study); }
+
   .save-btn {
     width: 100%;
     margin-top: 22px;
@@ -215,8 +249,16 @@
     <label>Название</label>
     <input type="text" id="name" placeholder="Например, поесть" maxlength="60">
 
+    <label>Категория</label>
+    <div class="cat-btns" id="catRow">
+      <button class="cat-btn" data-cat="home" onclick="selectCat('home')">Быт</button>
+      <button class="cat-btn" data-cat="health" onclick="selectCat('health')">Здоровье</button>
+      <button class="cat-btn" data-cat="study" onclick="selectCat('study')">Учёба</button>
+    </div>
+
     <label>Повтор по дням</label>
     <select id="repeatType" onchange="onRepeatChange()">
+      <option value="once">Один раз (на сегодня)</option>
       <option value="daily">Каждый день</option>
       <option value="weekdays">По будням</option>
       <option value="weekends">По выходным</option>
@@ -258,29 +300,29 @@
 
 <script>
 const STORAGE_KEY = 'myday_tasks_v1';
-
 let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-// структура: { id, name, repeatType, customDays:[], weeklyCount, timesPerDay, done: { "YYYY-MM-DD": count } }
-
-const WEEKDAY_NAMES = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+let currentCat = 'home'; // По умолчанию быт
 
 function todayKey() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-}
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
 
-// Проверка: должно ли дело быть сегодня
 function isActiveToday(task) {
-  const day = new Date().getDay(); // 0 = Вс
+  const day = new Date().getDay();
+  
+  // Если дело одноразовое, оно показывается только если на сегодня его еще нет в done
+  if (task.repeatType === 'once') {
+    return getDoneToday(task) === 0;
+  }
+
   if (task.repeatType === 'daily') return true;
   if (task.repeatType === 'weekdays') return day >= 1 && day <= 5;
   if (task.repeatType === 'weekends') return day === 0 || day === 6;
   if (task.repeatType === 'custom') return task.customDays.includes(day);
-  if (task.repeatType === 'weekly') return true; // всегда доступно
+  if (task.repeatType === 'weekly') return true;
   return true;
 }
 
@@ -292,18 +334,13 @@ function getDoneToday(task) {
 function setDoneToday(task, count) {
   if (!task.done) task.done = {};
   const key = todayKey();
-  if (count <= 0) {
-    delete task.done[key];
-  } else {
-    task.done[key] = count;
-  }
+  if (count <= 0) { delete task.done[key]; } else { task.done[key] = count; }
   save();
 }
 
-// Для "N раз в неделю" — считаем, сколько раз сделано за эту неделю
 function getWeekCount(task) {
   const now = new Date();
-  const day = now.getDay() === 0 ? 7 : now.getDay(); // 1..7
+  const day = now.getDay() === 0 ? 7 : now.getDay();
   const monday = new Date(now);
   monday.setDate(now.getDate() - (day - 1));
   let count = 0;
@@ -323,33 +360,25 @@ function render() {
 
   const visible = tasks.filter(t => {
     if (!isActiveToday(t)) return false;
-    if (t.repeatType === 'weekly') {
-      return getWeekCount(t) < t.weeklyCount;
-    }
+    if (t.repeatType === 'weekly') return getWeekCount(t) < t.weeklyCount;
+    if (t.repeatType === 'once') return getDoneToday(t) < 1; // Одноразовое исчезает после 1 раза
     return getDoneToday(t) < t.timesPerDay;
   });
 
-  if (visible.length === 0) {
-    empty.style.display = 'block';
-  } else {
-    empty.style.display = 'none';
-  }
+  empty.style.display = visible.length === 0 ? 'block' : 'none';
 
   visible.forEach(task => {
     const done = getDoneToday(task);
     const el = document.createElement('div');
-    el.className = 'task' + (done >= task.timesPerDay ? ' done-today' : '');
+    el.className = 'task cat-' + (task.cat || 'home') + (done >= (task.timesPerDay || 1) ? ' done-today' : '');
 
     const check = document.createElement('div');
-    check.className = 'check' + (done >= task.timesPerDay ? ' checked' : '');
-    if (done >= task.timesPerDay) check.textContent = '✓';
+    check.className = 'check' + (done >= (task.timesPerDay || 1) ? ' checked' : '');
+    if (done >= (task.timesPerDay || 1)) check.textContent = '✓';
     check.onclick = () => {
+      const max = task.timesPerDay || 1;
       const next = done + 1;
-      if (next >= task.timesPerDay) {
-        setDoneToday(task, task.timesPerDay);
-      } else {
-        setDoneToday(task, next);
-      }
+      setDoneToday(task, next >= max ? max : next);
       render();
     };
 
@@ -386,8 +415,7 @@ function render() {
     del.onclick = () => {
       if (confirm('Удалить «' + task.name + '»?')) {
         tasks = tasks.filter(t => t.id !== task.id);
-        save();
-        render();
+        save(); render();
       }
     };
 
@@ -398,7 +426,6 @@ function render() {
   });
 }
 
-// —— Форма ——
 const sheet = document.getElementById('sheet');
 function openSheet() {
   document.getElementById('name').value = '';
@@ -406,6 +433,7 @@ function openSheet() {
   document.getElementById('timesPerDay').value = '1';
   document.getElementById('weeklyCount').value = '3';
   document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+  selectCat('home'); // Сброс категории на быт
   onRepeatChange();
   sheet.classList.add('open');
   setTimeout(() => document.getElementById('name').focus(), 100);
@@ -417,6 +445,14 @@ function onRepeatChange() {
   const v = document.getElementById('repeatType').value;
   document.getElementById('customDaysWrap').style.display = v === 'custom' ? 'block' : 'none';
   document.getElementById('weeklyWrap').style.display = v === 'weekly' ? 'block' : 'none';
+}
+
+function selectCat(cat) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.className = 'cat-btn'; // сброс
+    if (btn.dataset.cat === cat) btn.classList.add('active-' + cat);
+  });
 }
 
 document.querySelectorAll('.day-btn').forEach(btn => {
@@ -432,22 +468,20 @@ function saveTask() {
   const customDays = Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day));
 
   if (repeatType === 'custom' && customDays.length === 0) {
-    alert('Выбери хотя бы один день');
-    return;
+    alert('Выбери хотя бы один день'); return;
   }
 
   tasks.push({
     id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
     name,
+    cat: currentCat,
     repeatType,
     customDays,
     weeklyCount,
     timesPerDay,
     done: {}
   });
-  save();
-  closeSheet();
-  render();
+  save(); closeSheet(); render();
 }
 
 render();
