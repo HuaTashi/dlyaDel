@@ -13,11 +13,6 @@
     --accent: #8fae8b;
     --accent-soft: #dfe9dc;
     --line: #ece2d8;
-    
-    /* Цвета категорий */
-    --color-home: #e6a15c;     /* Теплый оранжевый */
-    --color-health: #7ba2c4;   /* Спокойный синий */
-    --color-study: #a894b8;    /* Пыльный фиолетовый */
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -42,31 +37,26 @@
     margin: 40px 0;
     line-height: 1.6;
   }
+  
+  /* Плашки дел с мягким пастельным фоном */
   .task {
-    background: var(--card);
     border-radius: 16px;
-    padding: 14px 16px 14px 20px;
+    padding: 14px 16px;
     margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 12px;
-    box-shadow: 0 1px 2px rgba(74,64,58,0.04);
-    transition: opacity 0.3s;
+    box-shadow: 0 1px 3px rgba(74,64,58,0.03);
+    transition: opacity 0.3s, background 0.3s;
     position: relative;
-    overflow: hidden;
   }
-  .task::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 6px;
-    background: transparent;
-  }
-  .task.cat-home::before { background: var(--color-home); }
-  .task.cat-health::before { background: var(--color-health); }
-  .task.cat-study::before { background: var(--color-study); }
+  
+  /* Цвета категорий (пастельные фоны) */
+  .task.cat-home { background: #fcebd6; }      /* Теплый оранжевый для Быта */
+  .task.cat-health { background: #e3edf3; }    /* Мятно-голубой для Здоровья */
+  .task.cat-study { background: #ece8f2; }     /* Лавандовый для Учебы */
+  .task.cat-other { background: #fdf5d3; }     /* Нежный желтый для Другого */
+  .task.cat-work { background: #e4e8eb; }      /* Спокойный серо-синий для Работы */
 
   .check {
     width: 26px;
@@ -74,7 +64,7 @@
     min-width: 26px;
     border-radius: 50%;
     border: 2px solid var(--accent-soft);
-    background: transparent;
+    background: rgba(255,255,255,0.5); /* Полупрозрачный, чтобы не сливался с фоном */
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -102,7 +92,7 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--line);
+    background: rgba(74,64,58,0.15);
     transition: background 0.2s;
   }
   .dot.filled { background: var(--accent); }
@@ -197,10 +187,13 @@
     border-color: var(--accent);
   }
   
-  /* Стили для выбора категории */
-  .cat-btns { display: flex; gap: 8px; }
+  /* Стили для выбора категории (кнопки в форме) */
+  .cat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
   .cat-btn {
-    flex: 1;
     padding: 10px 0;
     border-radius: 10px;
     border: 1px solid var(--line);
@@ -210,9 +203,12 @@
     cursor: pointer;
     text-align: center;
   }
-  .cat-btn.active-home { background: rgba(230,161,92,0.2); border-color: var(--color-home); }
-  .cat-btn.active-health { background: rgba(123,162,196,0.2); border-color: var(--color-health); }
-  .cat-btn.active-study { background: rgba(168,148,184,0.2); border-color: var(--color-study); }
+  /* Подсветка выбранной категории в форме (совпадает с цветом плашки) */
+  .cat-btn.active-home { background: #fcebd6; border-color: #e6a15c; }
+  .cat-btn.active-health { background: #e3edf3; border-color: #7ba2c4; }
+  .cat-btn.active-study { background: #ece8f2; border-color: #a894b8; }
+  .cat-btn.active-other { background: #fdf5d3; border-color: #e6c857; }
+  .cat-btn.active-work { background: #e4e8eb; border-color: #8e9ba8; }
 
   .save-btn {
     width: 100%;
@@ -250,10 +246,12 @@
     <input type="text" id="name" placeholder="Например, поесть" maxlength="60">
 
     <label>Категория</label>
-    <div class="cat-btns" id="catRow">
+    <div class="cat-grid" id="catRow">
       <button class="cat-btn" data-cat="home" onclick="selectCat('home')">Быт</button>
       <button class="cat-btn" data-cat="health" onclick="selectCat('health')">Здоровье</button>
       <button class="cat-btn" data-cat="study" onclick="selectCat('study')">Учёба</button>
+      <button class="cat-btn" data-cat="other" onclick="selectCat('other')">Другое</button>
+      <button class="cat-btn" data-cat="work" onclick="selectCat('work')">Работа</button>
     </div>
 
     <label>Повтор по дням</label>
@@ -301,7 +299,7 @@
 <script>
 const STORAGE_KEY = 'myday_tasks_v1';
 let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-let currentCat = 'home'; // По умолчанию быт
+let currentCat = 'home';
 
 function todayKey() {
   const d = new Date();
@@ -312,12 +310,7 @@ function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
 
 function isActiveToday(task) {
   const day = new Date().getDay();
-  
-  // Если дело одноразовое, оно показывается только если на сегодня его еще нет в done
-  if (task.repeatType === 'once') {
-    return getDoneToday(task) === 0;
-  }
-
+  if (task.repeatType === 'once') return getDoneToday(task) === 0;
   if (task.repeatType === 'daily') return true;
   if (task.repeatType === 'weekdays') return day >= 1 && day <= 5;
   if (task.repeatType === 'weekends') return day === 0 || day === 6;
@@ -361,7 +354,7 @@ function render() {
   const visible = tasks.filter(t => {
     if (!isActiveToday(t)) return false;
     if (t.repeatType === 'weekly') return getWeekCount(t) < t.weeklyCount;
-    if (t.repeatType === 'once') return getDoneToday(t) < 1; // Одноразовое исчезает после 1 раза
+    if (t.repeatType === 'once') return getDoneToday(t) < 1;
     return getDoneToday(t) < t.timesPerDay;
   });
 
@@ -369,14 +362,18 @@ function render() {
 
   visible.forEach(task => {
     const done = getDoneToday(task);
+    const max = task.timesPerDay || 1;
+    
+    // Если у старого дела нет категории, ставим "Другое" по умолчанию
+    const cat = task.cat || 'other'; 
+    
     const el = document.createElement('div');
-    el.className = 'task cat-' + (task.cat || 'home') + (done >= (task.timesPerDay || 1) ? ' done-today' : '');
+    el.className = 'task cat-' + cat + (done >= max ? ' done-today' : '');
 
     const check = document.createElement('div');
-    check.className = 'check' + (done >= (task.timesPerDay || 1) ? ' checked' : '');
-    if (done >= (task.timesPerDay || 1)) check.textContent = '✓';
+    check.className = 'check' + (done >= max ? ' checked' : '');
+    if (done >= max) check.textContent = '✓';
     check.onclick = () => {
-      const max = task.timesPerDay || 1;
       const next = done + 1;
       setDoneToday(task, next >= max ? max : next);
       render();
@@ -390,10 +387,10 @@ function render() {
     name.textContent = task.name;
     body.appendChild(name);
 
-    if (task.timesPerDay > 1) {
+    if (max > 1) {
       const dots = document.createElement('div');
       dots.className = 'dots';
-      for (let i = 0; i < task.timesPerDay; i++) {
+      for (let i = 0; i < max; i++) {
         const d = document.createElement('div');
         d.className = 'dot' + (i < done ? ' filled' : '');
         dots.appendChild(d);
@@ -433,7 +430,7 @@ function openSheet() {
   document.getElementById('timesPerDay').value = '1';
   document.getElementById('weeklyCount').value = '3';
   document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
-  selectCat('home'); // Сброс категории на быт
+  selectCat('home');
   onRepeatChange();
   sheet.classList.add('open');
   setTimeout(() => document.getElementById('name').focus(), 100);
