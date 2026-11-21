@@ -24,7 +24,6 @@
     min-height: 100vh;
   }
   
-  /* Верхняя панель */
   .header {
     display: flex;
     align-items: center;
@@ -69,7 +68,6 @@
     line-height: 1.6;
   }
   
-  /* Плашки дел */
   .task {
     border-radius: 16px;
     padding: 14px 16px;
@@ -139,7 +137,6 @@
   }
   .del:active { opacity: 1; }
 
-  /* Стрелочки сортировки */
   .sort-zone {
     display: none;
     flex-direction: column;
@@ -363,8 +360,14 @@ function getWeekCount(task) {
 }
 
 function isActiveToday(task) {
+  const today = todayKey();
+  // ИСПРАВЛЕНИЕ 1 & 2: Одноразовые дела теперь имеют целевую дату и учитывают timesPerDay
+  if (task.repeatType === 'once') {
+    if (task.targetDate && task.targetDate !== today) return false;
+    return getDoneToday(task) < (task.timesPerDay || 1);
+  }
+  
   const day = new Date().getDay();
-  if (task.repeatType === 'once') return getDoneToday(task) === 0;
   if (task.repeatType === 'daily') return true;
   if (task.repeatType === 'weekdays') return day >= 1 && day <= 5;
   if (task.repeatType === 'weekends') return day === 0 || day === 6;
@@ -437,14 +440,15 @@ function render() {
   
   if (currentView === 'done') {
     visible = tasks.filter(t => {
-      const max = t.repeatType === 'once' ? 1 : (t.timesPerDay || 1);
+      // ИСПРАВЛЕНИЕ 1: Убрано принудительное ограничение max = 1 для 'once'
+      const max = t.timesPerDay || 1;
       return getDoneToday(t) >= max;
     });
   } else {
     visible = tasks.filter(t => {
       if (!isActiveToday(t)) return false;
       if (t.repeatType === 'weekly') return getWeekCount(t) < t.weeklyCount;
-      if (t.repeatType === 'once') return getDoneToday(t) < 1;
+      // ИСПРАВЛЕНИЕ 1: Теперь лимит проверяется динамически для всех типов
       return getDoneToday(t) < (t.timesPerDay || 1);
     });
   }
@@ -469,7 +473,6 @@ function render() {
     if (currentView === 'done') el.classList.add('done-today');
     if (editMode) el.classList.add('edit-mode');
 
-    // Чекбокс
     if (currentView === 'active') {
       const check = document.createElement('div');
       check.className = 'check' + (done >= max ? ' checked' : '');
@@ -483,7 +486,6 @@ function render() {
       el.appendChild(check);
     }
 
-    // Тело
     const body = document.createElement('div');
     body.className = 'task-body';
     body.onclick = () => {
@@ -518,7 +520,6 @@ function render() {
     }
     el.appendChild(body);
 
-    // Кнопка возврата
     if (currentView === 'done') {
       const ret = document.createElement('button');
       ret.className = 'return-btn';
@@ -531,7 +532,6 @@ function render() {
       el.appendChild(ret);
     }
 
-    // Стрелочки
     if (editMode && currentView === 'active') {
       const sortZone = document.createElement('div');
       sortZone.className = 'sort-zone';
@@ -551,7 +551,6 @@ function render() {
       el.appendChild(sortZone);
     }
 
-    // Удаление
     if (!editMode && currentView === 'active') {
       const del = document.createElement('button');
       del.className = 'del';
@@ -619,6 +618,9 @@ function saveTask() {
     alert('Выбери хотя бы один день'); return;
   }
 
+  // ИСПРАВЛЕНИЕ 2: Привязываем одноразовые дела к текущей дате
+  const targetDate = repeatType === 'once' ? todayKey() : null;
+
   if (editingTaskId) {
     const task = tasks.find(t => t.id === editingTaskId);
     if (task) {
@@ -629,12 +631,13 @@ function saveTask() {
       task.customDays = customDays;
       task.weeklyCount = weeklyCount;
       task.timesPerDay = timesPerDay;
+      task.targetDate = targetDate; // Обновляем дату при редактировании
     }
   } else {
     tasks.push({
       id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
       name, desc, cat: currentCat,
-      repeatType, customDays, weeklyCount, timesPerDay,
+      repeatType, customDays, weeklyCount, timesPerDay, targetDate,
       done: {}
     });
   }
