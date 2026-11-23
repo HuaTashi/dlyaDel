@@ -60,6 +60,32 @@
     border-color: var(--accent);
   }
 
+  /* Переключатель вкладок */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: var(--card);
+    padding: 6px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+
   .empty {
     text-align: center;
     color: var(--muted);
@@ -68,6 +94,7 @@
     line-height: 1.6;
   }
   
+  /* Плашки дел */
   .task {
     border-radius: 16px;
     padding: 14px 16px;
@@ -137,6 +164,7 @@
   }
   .del:active { opacity: 1; }
 
+  /* Стрелочки сортировки */
   .sort-zone {
     display: none;
     flex-direction: column;
@@ -164,6 +192,33 @@
     font-size: 12px;
     cursor: pointer;
     margin-left: auto;
+  }
+
+  /* Стили для простого списка */
+  .list-item {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--line);
+    transition: opacity 0.3s;
+  }
+  .list-item.done {
+    opacity: 0.5;
+  }
+  .list-item.done .list-item-text {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+  .list-item-text {
+    flex: 1;
+    font-size: 16px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    cursor: pointer;
   }
 
   .add-btn {
@@ -252,11 +307,25 @@
   </div>
 </div>
 
-<div id="list"></div>
-<div id="empty" class="empty">Пока пусто.<br>Добавь первое дело — кнопкой «+».</div>
+<!-- Переключатель вкладок -->
+<div class="tabs">
+  <button class="tab-btn active" id="tabDay" onclick="switchTab('day')">Мой день</button>
+  <button class="tab-btn" id="tabList" onclick="switchTab('list')">Список</button>
+</div>
+
+<div id="dayView">
+  <div id="list"></div>
+  <div id="empty" class="empty">Пока пусто.<br>Добавь первое дело — кнопкой «+».</div>
+</div>
+
+<div id="listView" style="display:none">
+  <div id="simpleList"></div>
+  <div id="simpleEmpty" class="empty">Список пуст.<br>Добавь что-нибудь — кнопкой «+».</div>
+</div>
 
 <button class="add-btn" id="addBtn" onclick="openSheet()">+</button>
 
+<!-- Модалка для дел -->
 <div class="sheet" id="sheet">
   <div class="sheet-content">
     <h2 id="sheetTitle">Новое дело</h2>
@@ -317,13 +386,27 @@
   </div>
 </div>
 
+<!-- Модалка для простого списка -->
+<div class="sheet" id="simpleSheet">
+  <div class="sheet-content">
+    <h2 id="simpleSheetTitle">Новый пункт</h2>
+    <label>Текст</label>
+    <input type="text" id="simpleText" placeholder="Например, купить молоко" maxlength="100">
+    <button class="save-btn" onclick="saveSimpleItem()">Сохранить</button>
+  </div>
+</div>
+
 <script>
 const STORAGE_KEY = 'myday_tasks_v1';
+const SIMPLE_LIST_KEY = 'myday_simple_list_v1';
 let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let simpleList = JSON.parse(localStorage.getItem(SIMPLE_LIST_KEY) || '[]');
 let currentCat = 'home';
 let editMode = false;
 let currentView = 'active';
 let editingTaskId = null;
+let editingSimpleId = null;
+let currentTab = 'day';
 
 function todayKey() {
   const d = new Date();
@@ -331,6 +414,7 @@ function todayKey() {
 }
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+function saveSimple() { localStorage.setItem(SIMPLE_LIST_KEY, JSON.stringify(simpleList)); }
 
 function getDoneToday(task) {
   const key = todayKey();
@@ -361,7 +445,6 @@ function getWeekCount(task) {
 
 function isActiveToday(task) {
   const today = todayKey();
-  // ИСПРАВЛЕНИЕ 1 & 2: Одноразовые дела теперь имеют целевую дату и учитывают timesPerDay
   if (task.repeatType === 'once') {
     if (task.targetDate && task.targetDate !== today) return false;
     return getDoneToday(task) < (task.timesPerDay || 1);
@@ -374,6 +457,19 @@ function isActiveToday(task) {
   if (task.repeatType === 'custom') return task.customDays.includes(day);
   if (task.repeatType === 'weekly') return true;
   return true;
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabDay').classList.toggle('active', tab === 'day');
+  document.getElementById('tabList').classList.toggle('active', tab === 'list');
+  document.getElementById('dayView').style.display = tab === 'day' ? 'block' : 'none';
+  document.getElementById('listView').style.display = tab === 'list' ? 'block' : 'none';
+  
+  // Сбрасываем режимы при переключении
+  editMode = false;
+  currentView = 'active';
+  render();
 }
 
 function toggleView(view) {
@@ -398,6 +494,16 @@ function moveTask(index, direction) {
   tasks[index] = tasks[newIndex];
   tasks[newIndex] = temp;
   save();
+  render();
+}
+
+function moveSimpleItem(index, direction) {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= simpleList.length) return;
+  const temp = simpleList[index];
+  simpleList[index] = simpleList[newIndex];
+  simpleList[newIndex] = temp;
+  saveSimple();
   render();
 }
 
@@ -428,19 +534,26 @@ function openEditSheet(id) {
 }
 
 function render() {
-  const list = document.getElementById('list');
-  const empty = document.getElementById('empty');
-  list.innerHTML = '';
-  
   document.getElementById('editBtn').className = 'icon-btn' + (editMode ? ' active' : '');
   document.getElementById('doneBtn').className = 'icon-btn' + (currentView === 'done' ? ' active' : '');
   document.getElementById('addBtn').style.display = editMode ? 'none' : 'flex';
 
+  if (currentTab === 'day') {
+    renderDayView();
+  } else {
+    renderSimpleList();
+  }
+}
+
+function renderDayView() {
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+  list.innerHTML = '';
+  
   let visible = [];
   
   if (currentView === 'done') {
     visible = tasks.filter(t => {
-      // ИСПРАВЛЕНИЕ 1: Убрано принудительное ограничение max = 1 для 'once'
       const max = t.timesPerDay || 1;
       return getDoneToday(t) >= max;
     });
@@ -448,7 +561,6 @@ function render() {
     visible = tasks.filter(t => {
       if (!isActiveToday(t)) return false;
       if (t.repeatType === 'weekly') return getWeekCount(t) < t.weeklyCount;
-      // ИСПРАВЛЕНИЕ 1: Теперь лимит проверяется динамически для всех типов
       return getDoneToday(t) < (t.timesPerDay || 1);
     });
   }
@@ -569,8 +681,90 @@ function render() {
   });
 }
 
+function renderSimpleList() {
+  const list = document.getElementById('simpleList');
+  const empty = document.getElementById('simpleEmpty');
+  list.innerHTML = '';
+
+  if (simpleList.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+  }
+
+  simpleList.forEach((item, index) => {
+    const el = document.createElement('div');
+    el.className = 'list-item' + (item.done ? ' done' : '');
+
+    const check = document.createElement('div');
+    check.className = 'check' + (item.done ? ' checked' : '');
+    if (item.done) check.textContent = '✓';
+    check.onclick = (e) => {
+      e.stopPropagation();
+      item.done = !item.done;
+      saveSimple();
+      render();
+    };
+    el.appendChild(check);
+
+    const text = document.createElement('div');
+    text.className = 'list-item-text';
+    text.textContent = item.text;
+    text.onclick = () => {
+      if (editMode) {
+        openSimpleEditSheet(item.id);
+      }
+    };
+    el.appendChild(text);
+
+    if (editMode) {
+      const sortZone = document.createElement('div');
+      sortZone.className = 'sort-zone';
+      sortZone.style.display = 'flex';
+      
+      const up = document.createElement('button');
+      up.className = 'sort-btn';
+      up.textContent = '↑';
+      up.onclick = (e) => { e.stopPropagation(); moveSimpleItem(index, -1); };
+      
+      const down = document.createElement('button');
+      down.className = 'sort-btn';
+      down.textContent = '↓';
+      down.onclick = (e) => { e.stopPropagation(); moveSimpleItem(index, 1); };
+      
+      sortZone.appendChild(up);
+      sortZone.appendChild(down);
+      el.appendChild(sortZone);
+    }
+
+    if (!editMode) {
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '×';
+      del.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm('Удалить «' + item.text + '»?')) {
+          simpleList = simpleList.filter(i => i.id !== item.id);
+          saveSimple();
+          render();
+        }
+      };
+      el.appendChild(del);
+    }
+
+    list.appendChild(el);
+  });
+}
+
 const sheet = document.getElementById('sheet');
+const simpleSheet = document.getElementById('simpleSheet');
+
 function openSheet() {
+  if (currentTab === 'list') {
+    openSimpleSheet();
+    return;
+  }
+  
   editingTaskId = null;
   document.getElementById('sheetTitle').textContent = 'Новое дело';
   document.getElementById('name').value = '';
@@ -584,8 +778,31 @@ function openSheet() {
   sheet.classList.add('open');
   setTimeout(() => document.getElementById('name').focus(), 100);
 }
+
+function openSimpleSheet() {
+  editingSimpleId = null;
+  document.getElementById('simpleSheetTitle').textContent = 'Новый пункт';
+  document.getElementById('simpleText').value = '';
+  simpleSheet.classList.add('open');
+  setTimeout(() => document.getElementById('simpleText').focus(), 100);
+}
+
+function openSimpleEditSheet(id) {
+  const item = simpleList.find(i => i.id === id);
+  if (!item) return;
+  
+  editingSimpleId = id;
+  document.getElementById('simpleSheetTitle').textContent = 'Редактировать';
+  document.getElementById('simpleText').value = item.text;
+  simpleSheet.classList.add('open');
+  setTimeout(() => document.getElementById('simpleText').focus(), 100);
+}
+
 function closeSheet() { sheet.classList.remove('open'); }
+function closeSimpleSheet() { simpleSheet.classList.remove('open'); }
+
 sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+simpleSheet.addEventListener('click', (e) => { if (e.target === simpleSheet) closeSimpleSheet(); });
 
 function onRepeatChange() {
   const v = document.getElementById('repeatType').value;
@@ -618,7 +835,6 @@ function saveTask() {
     alert('Выбери хотя бы один день'); return;
   }
 
-  // ИСПРАВЛЕНИЕ 2: Привязываем одноразовые дела к текущей дате
   const targetDate = repeatType === 'once' ? todayKey() : null;
 
   if (editingTaskId) {
@@ -631,7 +847,7 @@ function saveTask() {
       task.customDays = customDays;
       task.weeklyCount = weeklyCount;
       task.timesPerDay = timesPerDay;
-      task.targetDate = targetDate; // Обновляем дату при редактировании
+      task.targetDate = targetDate;
     }
   } else {
     tasks.push({
@@ -642,6 +858,27 @@ function saveTask() {
     });
   }
   save(); closeSheet(); render();
+}
+
+function saveSimpleItem() {
+  const text = document.getElementById('simpleText').value.trim();
+  if (!text) { alert('Напиши текст'); return; }
+
+  if (editingSimpleId) {
+    const item = simpleList.find(i => i.id === editingSimpleId);
+    if (item) {
+      item.text = text;
+    }
+  } else {
+    simpleList.push({
+      id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      text: text,
+      done: false
+    });
+  }
+  saveSimple();
+  closeSimpleSheet();
+  render();
 }
 
 render();
